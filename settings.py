@@ -5,10 +5,16 @@
 #
 
 import os
+import inspect
 
 AZURE_SPEECH_KEY = os.environ["AZURE_SPEECH_KEY"]
 AZURE_SPEECH_REGION = os.environ["AZURE_SPEECH_REGION"]
 
-AWS_ACCESS_KEY = os.environ["AWS_ACCESS_KEY"]
-AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
-AWS_REGION = os.environ["AWS_REGION"]
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+OPENAI_MODEL = "gpt-3.5-turbo-0125"
+SYSTEM_PROMPT = inspect.cleandoc("""
+    You are voice assistant.
+    You are concise.
+    You are designed to help users with their daily tasks.
+    You will always speak in the following language: {language}
+""")

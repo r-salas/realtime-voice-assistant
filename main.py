@@ -8,8 +8,10 @@ import concurrent
 import inspect
 import queue
 import threading
+import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 
 import azure.cognitiveservices.speech as speechsdk
 import httpx
@@ -17,6 +19,7 @@ import pyaudio
 from anthropic import AnthropicBedrock
 from azure.cognitiveservices.speech import ProfanityOption
 from nltk.tokenize import sent_tokenize
+from openai import OpenAI
 
 import settings
 from enums import Language
@@ -131,42 +134,39 @@ def azure_tts(text: str, language: Language, buffer_queue: queue.Queue, rank: in
     buffer_queue.put((rank, None))  # Signal end of audio
 
 
-def assistant(messages, language: Language):
-    anthropic_client = AnthropicBedrock(
-        aws_access_key=settings.AWS_ACCESS_KEY,
-        aws_secret_key=settings.AWS_SECRET_KEY,
-        aws_region=settings.AWS_REGION,
+def openai_assistant(messages, system_prompt):
+    openai_client = OpenAI(
+        api_key=settings.OPENAI_API_KEY
     )
 
-    system_prompt = inspect.cleandoc(f"""
-        You are voice assistant. 
-        You are concise.
-        You are designed to help users with their daily tasks.
-        You will always speak in the following language: {language.value.lower()}
-    """)
+    stream = openai_client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[{"role": "system", "content": system_prompt}] + messages,
+        stream=True,
+    )
 
-    with anthropic_client.messages.stream(
-            model="anthropic.claude-3-haiku-20240307-v1:0",
-            system=system_prompt,
-            messages=messages,
-            max_tokens=1024,
-            temperature=0.2
-    ) as stream:
-        sentence = ""
-        for text in stream.text_stream:
+    sentence = ""
+    for chunk in stream:
+        text = chunk.choices[0].delta.content
+
+        if text:
             sentence += text
 
-            tokenized_sentences = sent_tokenize(sentence)
+        tokenized_sentences = sent_tokenize(sentence)
 
-            if len(tokenized_sentences) > 1:
-                tts_sentence = tokenized_sentences.pop(0)
-                sentence = " ".join(tokenized_sentences)
+        if len(tokenized_sentences) > 1:
+            tts_sentence = tokenized_sentences.pop(0)
+            sentence = " ".join(tokenized_sentences)
 
-                yield tts_sentence
+            yield tts_sentence
+
+    if sentence:
+        yield sentence  # Send remaining sentence
 
 
 def main(language: Language = Language.SPANISH):
     messages = []
+    system_prompt = settings.SYSTEM_PROMPT.format(language=language.name.lower())
 
     play_queue = queue.Queue()
     buffer_queue = queue.Queue()
@@ -186,7 +186,7 @@ def main(language: Language = Language.SPANISH):
 
             bot_text = ""
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                for rank, sentence in enumerate(assistant(messages, language)):
+                for rank, sentence in enumerate(openai_assistant(messages, system_prompt)):
                     bot_text += sentence
                     executor.submit(azure_tts, sentence, language, buffer_queue, rank)
 
