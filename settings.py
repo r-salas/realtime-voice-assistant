@@ -25,3 +25,5 @@ REDIS_PORT = os.getenv("REDIS_PORT", 6379)
 REDIS_DATABASE = os.getenv("REDIS_DATABASE", 0)
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+
+DEEPGRAM_API_KEY = os.environ["DEEPGRAM_API_KEY"]

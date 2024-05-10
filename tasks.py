@@ -4,17 +4,13 @@
 #
 #
 
-import io
 import inspect
 import json
-
-import numpy as np
 import redis
 import boto3
 
 from celery import Celery
 from llama_cpp import Llama
-from faster_whisper import WhisperModel
 from celery.contrib.abortable import AbortableTask
 
 import settings
@@ -45,7 +41,6 @@ class ProcessAudioTask(AbortableTask):
     def __init__(self):
         super().__init__()
 
-        self.whisper = None
         self.llm = None
         self.polly = None
 
@@ -54,10 +49,6 @@ class ProcessAudioTask(AbortableTask):
         Load model on first call (i.e. first task processed)
         Avoids the need to load model on each task request
         """
-        if not self.whisper:
-            print("Loading Whisper ...")
-            self.whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
-
         if not self.llm:
             print("Loading Llama ...")
             self.llm = Llama.from_pretrained(
@@ -71,7 +62,7 @@ class ProcessAudioTask(AbortableTask):
             print("Loading Polly ...")
             self.polly = boto3.client(
                 "polly",
-                region_name="eu-west-3",
+                region_name="eu-central-1",
                 aws_access_key_id=settings.AWS_ACCESS_KEY,
                 aws_secret_access_key=settings.AWS_SECRET_KEY,
             )
@@ -80,28 +71,12 @@ class ProcessAudioTask(AbortableTask):
 
 
 @app.task(bind=True, base=ProcessAudioTask)
-def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
+def process(self, text: str, messages: list):
     redis_client.expire(self.request.id, 300)  # Set key to expire in 5 minutes
-
-    audio_pcm_l16_array = np.frombuffer(audio_pcm_l16_bytes, dtype=np.int16)
-
-    segments, info = self.whisper.transcribe(audio_pcm_l16_array, beam_size=5, language="es")
-    audio_transcription = " ".join([segment.text for segment in segments])
-
-    if self.is_aborted():
-        return
-
-    if not audio_transcription:
-        redis_client.lpush(self.request.id, b"end;json:" + json.dumps({
-            "user": None,
-            "assistant": None
-        }).encode())  # Signal end of audio
-
-        return   # Don't process empty audio
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT},
                 *messages,
-                {"role": "user", "content": audio_transcription}, {"role": "user", "content": audio_transcription}]
+                {"role": "user", "content": text}]
 
     stream_completion = self.llm.create_chat_completion_openai_v1(
         messages=messages,
@@ -127,6 +102,6 @@ def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
             return
 
     redis_client.lpush(self.request.id, b"end;json:" + json.dumps({
-        "user": audio_transcription,
+        "user": text,
         "assistant": " ".join(bot_responses)
     }).encode())  # Signal end of audio
