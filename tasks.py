@@ -63,7 +63,8 @@ class ProcessAudioTask(AbortableTask):
                 repo_id="SanctumAI/Meta-Llama-3-8B-Instruct-GGUF",
                 filename="meta-llama-3-8b-instruct.Q4_0.gguf",
                 verbose=False,
-                n_gpu_layers=-1
+                n_gpu_layers=-1,
+                n_ctx=8192
             )
 
         if not self.polly:
