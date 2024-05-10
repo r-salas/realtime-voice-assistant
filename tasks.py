@@ -7,6 +7,8 @@
 import io
 import inspect
 import json
+
+import numpy as np
 import redis
 import boto3
 
@@ -81,10 +83,13 @@ class ProcessAudioTask(AbortableTask):
 def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
     redis_client.expire(self.request.id, 300)  # Set key to expire in 5 minutes
 
-    pcm_l16_wav = create_wav(audio_pcm_l16_bytes, 16_000)
+    audio_pcm_l16_array = np.frombuffer(audio_pcm_l16_bytes, dtype=np.int16)
 
-    segments, info = self.whisper.transcribe(pcm_l16_wav, beam_size=5, language="es")
+    segments, info = self.whisper.transcribe(audio_pcm_l16_array, beam_size=5, language="es")
     audio_transcription = " ".join([segment.text for segment in segments])
+
+    if self.is_aborted():
+        return
 
     if not audio_transcription:
         redis_client.lpush(self.request.id, b"end;json:" + json.dumps({
@@ -94,9 +99,9 @@ def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
 
         return   # Don't process empty audio
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
-
-    messages.append({"role": "user", "content": audio_transcription})
+    messages = [{"role": "system", "content": SYSTEM_PROMPT},
+                *messages,
+                {"role": "user", "content": audio_transcription}, {"role": "user", "content": audio_transcription}]
 
     stream_completion = self.llm.create_chat_completion_openai_v1(
         messages=messages,
@@ -105,9 +110,6 @@ def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
 
     bot_responses = []
     for sentence in sent_tokenize_stream(stream_completion):
-        if self.is_aborted():
-            return
-
         sentence = sentence.strip()
 
         bot_responses.append(sentence)
@@ -120,6 +122,9 @@ def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
         )
 
         redis_client.lpush(self.request.id, tts_response["AudioStream"].read())
+
+        if self.is_aborted():
+            return
 
     redis_client.lpush(self.request.id, b"end;json:" + json.dumps({
         "user": audio_transcription,
