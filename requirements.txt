@@ -4,3 +4,4 @@ PyAudio~=0.2.14
 celery[redis]~=5.4.0
 faster-whisper~=1.0.2
 llama-cpp-python~=0.2.70
+openai~=1.28.0
