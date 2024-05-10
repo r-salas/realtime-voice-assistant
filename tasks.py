@@ -4,10 +4,11 @@
 #
 #
 
-import inspect
 import json
+import time
 import redis
 import boto3
+import inspect
 
 from celery import Celery
 from llama_cpp import Llama
@@ -89,12 +90,14 @@ def process(self, text: str, messages: list):
 
         bot_responses.append(sentence)
 
+        start_time = time.time()
         tts_response = self.polly.synthesize_speech(
             OutputFormat="pcm",
             Text=sentence,
             VoiceId="Lucia",
             SampleRate="16000"
         )
+        print(f"TTS: {time.time() - start_time:.4f}s")
 
         redis_client.lpush(self.request.id, tts_response["AudioStream"].read())
 

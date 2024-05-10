@@ -63,6 +63,8 @@ def main():
         if not transcript:
             return
 
+        print(">>> " + transcript)
+
         # TODO: stop recording when user stops speaking
 
         current_task = tasks.process.delay(transcript, messages)

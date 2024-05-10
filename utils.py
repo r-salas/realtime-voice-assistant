@@ -5,6 +5,7 @@
 #
 
 import io
+import time
 import wave
 import nltk
 import numpy as np
@@ -29,6 +30,7 @@ def create_wav(pcm_l16: bytes | np.ndarray, sample_rate: 16_000):
 
 def sent_tokenize_stream(stream: iter):
     sentence = ""
+    start_time = time.time()
     for chunk in stream:
         text = chunk.choices[0].delta.content
 
@@ -38,10 +40,16 @@ def sent_tokenize_stream(stream: iter):
         tokenized_sentences = sent_tokenize(sentence, language="spanish")
 
         if len(tokenized_sentences) > 1:
+            print(f"Sentence: {time.time() - start_time:.4f}s")
+
             tts_sentence = tokenized_sentences.pop(0)
             sentence = " ".join(tokenized_sentences)
 
             yield tts_sentence
 
+            start_time = time.time()
+
     if sentence:
+        print(f"Sentence: {time.time() - start_time:.4f}s")
+
         yield sentence  # Send remaining sentence
