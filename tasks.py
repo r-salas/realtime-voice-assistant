@@ -83,7 +83,7 @@ def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
 
     pcm_l16_wav = create_wav(audio_pcm_l16_bytes, 16_000)
 
-    segments, info = self.whisper.transcribe(io.BytesIO(pcm_l16_wav), beam_size=5, language="es")
+    segments, info = self.whisper.transcribe(pcm_l16_wav, beam_size=5, language="es")
     audio_transcription = " ".join([segment.text for segment in segments])
 
     if not audio_transcription:
