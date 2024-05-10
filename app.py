@@ -79,7 +79,6 @@ def main():
                 if not data["user"]:
                     break  # No transcription available, continue listening
 
-                print(">>> " + data["user"])
                 print(data["assistant"])
 
                 messages.extend([
