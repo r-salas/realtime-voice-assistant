@@ -92,6 +92,8 @@ def process_audio(self, audio_pcm_l16_bytes: bytes, messages: list):
             "assistant": None
         }).encode())  # Signal end of audio
 
+        return   # Don't process empty audio
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
     messages.append({"role": "user", "content": audio_transcription})
