@@ -162,3 +162,5 @@ cython_debug/
 .envrc
 
 .DS_Store
+
+*.local.py
