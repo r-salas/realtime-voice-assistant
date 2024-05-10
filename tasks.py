@@ -97,9 +97,10 @@ def process(self, text: str, messages: list):
             VoiceId="Lucia",
             SampleRate="16000"
         )
+        audio_bytes = tts_response["AudioStream"].read()
         print(f"TTS: {time.time() - start_time:.4f}s")
 
-        redis_client.lpush(self.request.id, tts_response["AudioStream"].read())
+        redis_client.lpush(self.request.id, audio_bytes)
 
         if self.is_aborted():
             return
