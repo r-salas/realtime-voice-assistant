@@ -37,6 +37,7 @@ def sent_tokenize_stream(stream: iter):
         if text:
             sentence += text
 
+        sentence = sentence.replace(":", ".")
         tokenized_sentences = sent_tokenize(sentence, language="spanish")
 
         if len(tokenized_sentences) > 1:
