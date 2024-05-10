@@ -18,3 +18,10 @@ SYSTEM_PROMPT = inspect.cleandoc("""
     You are designed to help users with their daily tasks.
     You will always speak in the following language: {language}
 """)
+AWS_ACCESS_KEY = os.environ["AWS_ACCESS_KEY"]
+AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
+
+REDIS_PORT = os.getenv("REDIS_PORT", 6379)
+REDIS_DATABASE = os.getenv("REDIS_DATABASE", 0)
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
