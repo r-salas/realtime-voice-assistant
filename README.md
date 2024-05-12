@@ -1,5 +1,5 @@
 # realtime-voice-assistant
-Real Time Voice Assistant using LLMs
+Real Time Voice Assistant using LLama 3, Deepgram, and AWS Polly.
 
 ## Requirements
 - Python 3
