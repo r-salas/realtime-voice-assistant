@@ -3,6 +3,6 @@ nltk~=3.8.1
 celery[redis]~=5.4.0
 llama-cpp-python~=0.2.70
 openai~=1.28.0
-pydub~=0.25.1
 deepgram-sdk~=3.2.7
 pvrecorder~=1.2.2
+simpleaudio~=1.0.4

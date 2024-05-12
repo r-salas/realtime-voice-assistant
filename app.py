@@ -3,48 +3,105 @@
 #   Main 3
 #
 #
-import io
+import base64
 import json
-import redis
-import torch
 import queue
-import datetime
+import time
+
+import redis
 import threading
+import simpleaudio
 import numpy as np
+
 from deepgram import DeepgramClientOptions, DeepgramClient, LiveTranscriptionEvents, LiveOptions
-
 from pvrecorder import PvRecorder
-from pydub import AudioSegment
-from pydub.playback import play as pydub_play
-
-import tasks
 
 import settings
+import tasks
 
 
-def play_audio(play_queue: queue.Queue):
+def process(text_queue: queue.Queue, stop_event: threading.Event):
+    messages = []
+
+    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DATABASE,
+                               password=settings.REDIS_PASSWORD)
+
     while True:
-        audio = play_queue.get()
+        text = text_queue.get()
 
-        if audio is None:
-            play_queue.task_done()
-            break
+        stop_event.clear()
 
-        audio_segment = AudioSegment.from_file(
-            file=io.BytesIO(audio),
-            format="raw",
-            frame_rate=16_000,
-            channels=1,
-            sample_width=2
-        )
-        pydub_play(audio_segment)
+        if text is None:
+            text_queue.task_done()
+            return  # Don't do anything else
 
-        play_queue.task_done()
+        messages.append({"role": "user", "content": text})
+
+        current_task = tasks.process.delay(messages)
+
+        first_sentence = True
+        while True:
+            data = redis_client.brpop(current_task.id, timeout=0.05)
+
+            if stop_event.is_set():
+                print("Stopping ...")
+                current_task.abort()
+
+                stop_event.clear()
+                break
+
+            if data is None:
+                time.sleep(0.05)
+
+                continue
+
+            _, response = data
+
+            if response == b"==END==":  # No more audios to play
+                break
+
+            response = json.loads(response)
+            sentence = response["sentence"]
+            audio_bytes = base64.b64decode(response["audio"])
+
+            if first_sentence:
+                messages.append({"role": "assistant", "content": sentence})
+            else:
+                messages[-1]["content"] += f" {sentence}"
+
+            first_sentence = False
+
+            play_obj = simpleaudio.play_buffer(
+                audio_bytes,
+                num_channels=1,
+                bytes_per_sample=2,
+                sample_rate=16_000
+            )
+
+            while True:
+                if stop_event.is_set():
+                    print("Stopping ...")
+
+                    break
+
+                if not play_obj.is_playing():
+                    break
+
+                time.sleep(0.05)
+
+            if stop_event.is_set():
+                print("Stopping ...")
+
+                play_obj.stop()
+                current_task.abort()
+
+                stop_event.clear()
+                break
+
+        text_queue.task_done()
 
 
 def main():
-    messages = []
-
     config = DeepgramClientOptions(
         options={"keepalive": "true"}
     )
@@ -52,45 +109,27 @@ def main():
 
     dg_connection = deepgram.listen.live.v("1")
 
+    stop_event = threading.Event()
+
+    text_queue = queue.Queue()
+
     def on_message(instance, result):
-        nonlocal messages
-
-        if not result.speech_final:
-            return
-
         transcript = result.channel.alternatives[0].transcript
 
         if not transcript:
             return
 
-        print(">>> " + transcript)
+        print("[Partial] >>> ", transcript)
 
-        # TODO: stop recording when user stops speaking
+        # Stop and clear queue
+        stop_event.set()
 
-        current_task = tasks.process.delay(transcript, messages)
+        with text_queue.mutex:
+            text_queue.queue.clear()
 
-        while True:
-            print(f"Retrieving audio from {current_task.id}")
-            _, audio_bytes = redis_client.brpop(current_task.id, timeout=0)
-
-            if audio_bytes.startswith(b"end;json:"):
-                data = json.loads(audio_bytes[9:])
-
-                if not data["user"]:
-                    break  # No transcription available, continue listening
-
-                print(data["assistant"])
-
-                messages.extend([
-                    {"role": "user", "content": data["user"]},
-                    {"role": "assistant", "content": data["assistant"]}
-
-                ])
-
-                break  # Don't keep receiving audio
-            else:
-                print(f"Playing audio from {current_task.id}")
-                play_queue.put(audio_bytes)
+        if result.speech_final:
+            print("[Final] >>> ", transcript)
+            text_queue.put(transcript)
 
     dg_connection.on(LiveTranscriptionEvents.Transcript, on_message)
 
@@ -101,7 +140,8 @@ def main():
         encoding="linear16",
         channels=1,
         sample_rate=16_000,
-        endpointing="100"
+        endpointing="100",
+        interim_results=True,
     )
 
     deepgram_addons = {
@@ -117,24 +157,29 @@ def main():
     frame_length = int(16_000 * (frame_ms / 1_000))
     recorder = PvRecorder(frame_length=frame_length)
 
-    play_queue = queue.Queue()
-
-    threading.Thread(target=play_audio, args=(play_queue,)).start()
-
-    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DATABASE,
-                               password=settings.REDIS_PASSWORD)
+    threading.Thread(target=process, args=(text_queue, stop_event)).start()
 
     recorder.start()
     print(f"Listening on {recorder.selected_device} ...")
 
-    while recorder.is_recording:
-        frame = recorder.read()
-        frame = np.array(frame, dtype=np.int16)
+    try:
+        while recorder.is_recording:
+            frame = recorder.read()
+            frame = np.array(frame, dtype=np.int16)
 
-        dg_connection.send(frame.tobytes())
+            dg_connection.send(frame.tobytes())
+    except KeyboardInterrupt:
+        pass
 
-    play_queue.put(None)
-    play_queue.join()
+    recorder.stop()
+
+    stop_event.set()
+
+    with text_queue.mutex:
+        text_queue.queue.clear()
+
+    text_queue.put(None)
+    text_queue.join()
 
 
 if __name__ == "__main__":

@@ -9,8 +9,9 @@ import time
 import wave
 import nltk
 import numpy as np
-from nltk import sent_tokenize
 
+from nltk import sent_tokenize
+from llama_cpp.llama_cpp import _load_shared_library
 
 nltk.download("punkt")
 
@@ -54,3 +55,8 @@ def sent_tokenize_stream(stream: iter):
         print(f"Sentence: {time.time() - start_time:.4f}s")
 
         yield sentence  # Send remaining sentence
+
+
+def is_gpu_available_for_llama() -> bool:
+    lib = _load_shared_library('llama')
+    return bool(lib.llama_supports_gpu_offload())
