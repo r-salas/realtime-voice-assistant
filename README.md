@@ -1,5 +1,7 @@
 # realtime-voice-assistant
-Real Time Voice Assistant using LLama 3, Deepgram, and AWS Polly.
+Real Time Voice Assistant using LLama 3, Deepgram, and AWS Polly. 
+
+It allows interrupting the assistant at any time.
 
 ## Requirements
 - Python 3
