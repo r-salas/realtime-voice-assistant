@@ -136,7 +136,7 @@ def main():
     deepgram_options = LiveOptions(
         model="nova-2",
         punctuate=True,
-        language='es-ES',
+        language=settings.DEEPGRAM_LANGUAGE,
         encoding="linear16",
         channels=1,
         sample_rate=16_000,

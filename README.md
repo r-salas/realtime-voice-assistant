@@ -1,12 +1,23 @@
 # realtime-voice-assistant
 Real Time Voice Assistant using LLMs
 
+## Requirements
+- Python 3
+- Redis
+
 ## Installation
 1. Install llama-cpp-python according to the instructions in the [llama-cpp-python](https://llama-cpp-python.readthedocs.io/en/stable/#installation) documentation.
 2. Install requirements
 ```
 $ pip install -r requirements.txt
 ```
+3. The following environment variables are required:
+```
+AWS_ACCESS_KEY=<Your AWS Access Key>
+AWS_SECRET_KEY=<Your AWS Secret Key>
+DEEPGRAM_API_KEY=<Your Deepgram API Key>
+```
+4. (Optional) Customize your settings in `settings.py`. You may want to customize the language, by default it is set to `es-ES`.
 
 ## Usage
 1. Run the worker

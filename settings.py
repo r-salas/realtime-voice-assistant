@@ -7,17 +7,6 @@
 import os
 import inspect
 
-AZURE_SPEECH_KEY = os.environ["AZURE_SPEECH_KEY"]
-AZURE_SPEECH_REGION = os.environ["AZURE_SPEECH_REGION"]
-
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-OPENAI_MODEL = "gpt-3.5-turbo-0125"
-SYSTEM_PROMPT = inspect.cleandoc("""
-    You are voice assistant.
-    You are concise.
-    You are designed to help users with their daily tasks.
-    You will always speak in the following language: {language}
-""")
 AWS_ACCESS_KEY = os.environ["AWS_ACCESS_KEY"]
 AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
 
@@ -27,3 +16,19 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 
 DEEPGRAM_API_KEY = os.environ["DEEPGRAM_API_KEY"]
+
+SYSTEM_PROMPT = inspect.cleandoc("""
+    You are voice assistant.
+    You will speak in Spanish.  
+    You are working for a telecommunications company named Lowi.
+    You are a customer service assistant.
+    You are polite.
+    You are helpful.
+    You will introduce yourself as the virtual assistant of Lowi.
+    You will ask the user for their name.
+    The first time you speak, you will introduce yourself.
+    Your answers will be short and concise.
+    You will ask for clarification if you do not understand the user.
+""")
+
+DEEPGRAM_LANGUAGE = "es-ES"

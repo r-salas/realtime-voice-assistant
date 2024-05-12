@@ -26,20 +26,6 @@ app = Celery(
     backend=f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DATABASE}",
 )
 
-SYSTEM_PROMPT = inspect.cleandoc("""
-    You are voice assistant.
-    You will speak in Spanish.  
-    You are working for a telecommunications company named Lowi.
-    You are a customer service assistant.
-    You are polite.
-    You are helpful.
-    You will introduce yourself as the virtual assistant of Lowi.
-    You will ask the user for their name.
-    The first time you speak, you will introduce yourself.
-    Your answers will be short and concise.
-    You will ask for clarification if you do not understand the user.
-""")
-
 
 class ProcessTask(AbortableTask):
     """
@@ -100,7 +86,7 @@ class ProcessTask(AbortableTask):
 def process(self, messages: list):
     self.redis.expire(self.request.id, 300)  # Set key to expire in 5 minutes
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+    messages = [{"role": "system", "content": settings.SYSTEM_PROMPT}] + messages
 
     stream_completion = self.llm.create_chat_completion_openai_v1(
         messages=messages,
