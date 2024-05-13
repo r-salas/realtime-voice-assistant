@@ -80,8 +80,8 @@ class ProcessTask(Task):
         return self.run(*args, **kwargs)
 
 
-@app.task(bind=True, base=ProcessTask)
-def process(self, messages: list):
+@app.task(bind=True, base=ProcessTask, name="tasks.process_transcription")
+def process_transcription(self, messages: list):
     self.redis.expire(self.request.id, 300)  # Set key to expire in 5 minutes
 
     messages = [{"role": "system", "content": settings.SYSTEM_PROMPT}] + messages
