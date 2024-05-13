@@ -38,6 +38,9 @@ class ProcessTask(Task):
         self.polly = None
         self.redis = None
 
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        print("Error: ", exc, task_id, args, kwargs, einfo)
+
     def __call__(self, *args, **kwargs):
         """
         Load model on first call (i.e. first task processed)
