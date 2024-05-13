@@ -3,11 +3,13 @@
 #   Main 3
 #
 #
+
 import base64
 import json
 import queue
 import time
 
+import celery
 import redis
 import threading
 import simpleaudio
@@ -39,7 +41,7 @@ def process(text_queue: queue.Queue, stop_event: threading.Event):
 
         messages.append({"role": "user", "content": text})
 
-        current_task = tasks.process.delay(messages)
+        current_task: celery.Task = tasks.process_transcription.apply_async(kwargs={"messages": messages})
         print("Starting task : ", current_task.id)
 
         first_sentence = True
@@ -123,16 +125,13 @@ def main():
         if not transcript:
             return
 
-        print("[Partial] >>> ", transcript)
-
-        # Stop and clear queue
-        stop_event.set()
-
-        with text_queue.mutex:
-            text_queue.queue.clear()
-
         if result.speech_final:
-            print("[Final] >>> ", transcript)
+            print(">>> ", transcript)
+            stop_event.clear()
+
+            with text_queue.mutex:
+                text_queue.queue.clear()
+
             text_queue.put(transcript)
 
     dg_connection.on(LiveTranscriptionEvents.Transcript, on_message)
@@ -144,13 +143,13 @@ def main():
         encoding="linear16",
         channels=1,
         sample_rate=16_000,
-        endpointing="100",
         interim_results=True,
+        endpointing="100"
     )
 
     deepgram_addons = {
         # Prevent waiting for additional numbers
-        "no_delay": "true"
+        # "no_delay": "true"
     }
 
     if dg_connection.start(deepgram_options, addons=deepgram_addons) is False:
