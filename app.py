@@ -27,7 +27,9 @@ def process(text_queue: queue.Queue, stop_event: threading.Event):
                                password=settings.REDIS_PASSWORD)
 
     while True:
+        print("Waiting for transcription ...")
         text = text_queue.get()
+        print("Transcription received: ", text)
 
         stop_event.clear()
 
@@ -38,14 +40,14 @@ def process(text_queue: queue.Queue, stop_event: threading.Event):
         messages.append({"role": "user", "content": text})
 
         current_task = tasks.process.delay(messages)
+        print("Starting task : ", current_task.id)
 
         first_sentence = True
         while True:
             data = redis_client.brpop(current_task.id, timeout=0.05)
 
             if stop_event.is_set():
-                print("Stopping ...")
-                current_task.abort()
+                print(f"Aborting task {current_task.id} and stopping ...")
 
                 stop_event.clear()
                 break
@@ -55,9 +57,12 @@ def process(text_queue: queue.Queue, stop_event: threading.Event):
 
                 continue
 
+            print("Audio received")
+
             _, response = data
 
             if response == b"==END==":  # No more audios to play
+                print("No more audios to play")
                 break
 
             response = json.loads(response)
@@ -90,10 +95,9 @@ def process(text_queue: queue.Queue, stop_event: threading.Event):
                 time.sleep(0.05)
 
             if stop_event.is_set():
-                print("Stopping ...")
+                print(f"Aborting task {current_task.id} and stopping ...")
 
                 play_obj.stop()
-                current_task.abort()
 
                 stop_event.clear()
                 break

@@ -3,21 +3,19 @@
 #   Tasks
 #
 #
+
 import base64
 import json
 import time
 import warnings
-
 import redis
 import boto3
-import inspect
 
-from celery import Celery
+from celery import Celery, Task
 from llama_cpp import Llama
-from celery.contrib.abortable import AbortableTask
 
 import settings
-from utils import create_wav, sent_tokenize_stream, is_gpu_available_for_llama
+from utils import sent_tokenize_stream, is_gpu_available_for_llama
 
 
 app = Celery(
@@ -27,7 +25,7 @@ app = Celery(
 )
 
 
-class ProcessTask(AbortableTask):
+class ProcessTask(Task):
     """
     Abstraction of Celery's Task class to support loading ML model.
     """
@@ -113,8 +111,5 @@ def process(self, messages: list):
             "audio": base64.b64encode(audio_bytes).decode(),
             "sentence": sentence
         }))
-
-        if self.is_aborted():
-            return
 
     self.redis.lpush(self.request.id, b"==END==")  # Signal end of audio
