@@ -1,8 +1,6 @@
 # realtime-voice-assistant
 Real Time Voice Assistant using LLama 3, Deepgram, and AWS Polly. 
 
-It allows interrupting the assistant at any time.
-
 ## Requirements
 - Python 3
 - Redis
@@ -30,6 +28,9 @@ $ celery -A tasks worker --loglevel=info
 ```
 $ python app.py
 ```
+
+## Customization
+Right now, the assistant is configured to speak in Spanish, you can change the language in `settings.py`.
 
 ## Mac OS Notes
 It's recommended to use the `solo` pool for the worker on Mac OS. This is because the `prefork` pool is not supported on Mac OS. To run the worker with the `solo` pool, use the following command:
